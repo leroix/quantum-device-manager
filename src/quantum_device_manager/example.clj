@@ -112,7 +112,7 @@
 ;;   :gate/phase-rad 0.785}]
 
 ;; Let's say that we were able to measure the resonance of the qubit in the 0 position
-;; to a few more
+;; to a few more decimal places
 (def db-before-qubit-change (d/db conn))
 (q/update-qubit conn (merge (q/device-position->qubit db-before-qubit-change device 0)
                             {:qubit/resonance-GHz 20.103}))
