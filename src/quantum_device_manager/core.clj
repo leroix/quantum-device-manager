@@ -161,9 +161,10 @@
                         :device/qubits qubit-id}])))
 
 (defn device-position->qubit [db device position]
-  (d/touch (d/entity db
-                     [:qubit/composite-id (massage-id [(lenient-id device)
-                                                       position])])))
+  (into {} (d/pull db
+                   '[*]
+                   [:qubit/composite-id (massage-id [(lenient-id device)
+                                                     position])])))
 
 (defn device->qubits [db device]
   (:device/qubits (d/entity db (lenient-id device))))
@@ -204,9 +205,10 @@
                    (lenient-id device))))
 
 (defn qubit-name->gate [db qubit name]
-  (d/touch (d/entity db
-                     [:gate/composite-id (massage-id [(lenient-id qubit)
-                                                      name])])))
+  (into {} (d/pull db
+                   '[*]
+                   [:gate/composite-id (massage-id [(lenient-id qubit)
+                                                    name])])))
 
 (defn update-gate [conn gate]
   (assert (:db/id gate) "The gate must have a :db/id field.")
