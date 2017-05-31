@@ -1,14 +1,16 @@
 # quantum-device-manager
+A shave and a haircut, two qubits!
 
-A Clojure library designed to ... well, that part is up to you.
+## Rationale
+
 
 ## Usage
 
 FIXME
 
 ## License
+See LICENSE file.
 
-Copyright © 2017 FIXME
+Copyright © 2017 Justin Ratner
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the MIT License

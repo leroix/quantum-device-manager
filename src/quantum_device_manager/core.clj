@@ -83,13 +83,13 @@
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
-    :db/ident :gate/width
+    :db/ident :gate/width-ns
     :db/doc "Time width of the gate in nanoseconds"
     :db/valueType :db.type/double
     :db/cardinality :db.cardinality/one
     :db.install/_attribute :db.part/db}
    {:db/id #db/id[:db.part/db]
-    :db/ident :gate/phase
+    :db/ident :gate/phase-rad
     :db/doc "Phase of the gate in radians"
     :db/valueType :db.type/double
     :db/cardinality :db.cardinality/one
@@ -112,26 +112,40 @@
     id
     (hash id)))
 
-(def conn (d/connect "datomic:free://localhost:4334/quantum-device-manager"))
+(defn lenient-id [id-or-entity]
+  (or (:db/id id-or-entity) id-or-entity))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Device Interface
 (defn create-device [conn device]
-  @(d/transact conn [(merge device {:db/id #db/id[:db.part/user]})]))
+  @(d/transact conn [(merge {:db/id #db/id[:db.part/user]} device)]))
 
-(defn device-name->device [db device-name]
+(defn name->device [db device-name]
   (first (mapv first (d/q '[:find (pull ?e [*])
                             :in $ ?name
                             :where [?e :device/name ?name]]
                           db
                           device-name))))
 
-(defn qubit-id->device [db qubit-id]
+(defn qubit->device [db qubit]
   (first (mapv first (d/q '[:find (pull ?e [*])
-                            :in $ ?qubit-id
-                            :where [?e :device/qubits ?qubit-id]]
+                              :in $ ?qubit-id
+                              :where [?e :device/qubits ?qubit-id]]
+                            db
+                            (lenient-id qubit)))))
+
+(defn gate->device [db gate]
+  (first (mapv first (d/q '[:find (pull ?device [*])
+                            :in $ ?gate-id
+                            :where
+                            [?qubit :qubit/gates ?gate-id]
+                            [?device :device/qubits ?qubit]]
                           db
-                          qubit-id))))
+                          (lenient-id gate)))))
+
+(defn update-device [conn device]
+  (assert (:db/id device) "The device must have a :db/id field.")
+  @(d/transact conn [device]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Qubit Interface
@@ -139,30 +153,30 @@
   (let [device-id (:qubit/device-id qubit)
         qubit-id (d/tempid :db.part/user)
         id (massage-id [device-id (:qubit/position qubit)])
-        entity (merge qubit {:qubit/composite-id (bigint id)
-                             :db/id qubit-id})]
+        entity (merge {:qubit/composite-id (bigint id)
+                       :db/id qubit-id}
+                      qubit)]
     @(d/transact conn [entity
                        {:db/id device-id
                         :device/qubits qubit-id}])))
 
-(defn device-position->qubit [db device-id position]
-  (first (mapv first (d/q '[:find (pull ?e [*])
-                            :in $ ?id
-                            :where [?e :qubit/composite-id ?id]]
-                          db
-                          (massage-id [device-id position])))))
+(defn device-position->qubit [db device position]
+  (d/touch (d/entity db
+                     [:qubit/composite-id (massage-id [(lenient-id device)
+                                                       position])])))
 
-(defn device-id->qubits [db device-id]
-  (:device/qubits (d/entity db device-id)))
+(defn device->qubits [db device]
+  (:device/qubits (d/entity db (lenient-id device))))
 
-(defn gate-id->qubit [db gate-id]
+(defn gate->qubit [db gate]
   (first (mapv first (d/q '[:find (pull ?e [*])
                             :in $ ?gate-id
-                            :where [e? :qubit/gates gate-id]]
+                            :where [?e :qubit/gates ?gate-id]]
                           db
-                          gate-id))))
+                          (lenient-id gate)))))
 
 (defn update-qubit [conn qubit]
+  (assert (:db/id qubit) "The qubit must have a :db/id field.")
   @(d/transact conn [qubit]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -170,14 +184,30 @@
 (defn create-gate [conn gate]
   (let [id (massage-id [(:gate/qubit-id gate) (:gate/name gate)])
         gate-id (d/tempid :db.part/user)
-        entity (merge gate {:gate/composite-id (bigint id)
-                            :db/id gate-id})]
+        entity (merge {:gate/composite-id (bigint id)
+                       :db/id gate-id}
+                      gate)]
     @(d/transact conn [entity
                        {:db/id (:gate/qubit-id gate)
                         :qubit/gates gate-id}])))
 
-(defn qubit-id->gates [db qubit-id]
-  (:qubit/gates (d/entity db qubit-id)))
+(defn qubit->gates [db qubit]
+  (:qubit/gates (d/entity db (lenient-id qubit))))
+
+(defn device->gates [db device]
+  (mapv first (d/q '[:find (pull ?gate [*])
+                     :in $ ?device-id
+                     :where
+                     [?qubit :qubit/device-id ?device-id]
+                     [?gate :gate/qubit-id ?qubit]]
+                   db
+                   (lenient-id device))))
+
+(defn qubit-name->gate [db qubit name]
+  (d/touch (d/entity db
+                     [:gate/composite-id (massage-id [(lenient-id qubit)
+                                                      name])])))
 
 (defn update-gate [conn gate]
+  (assert (:db/id gate) "The gate must have a :db/id field.")
   @(d/transact conn [gate]))
