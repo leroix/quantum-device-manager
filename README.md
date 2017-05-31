@@ -1,5 +1,5 @@
 # quantum-device-manager
-A shave and a haircut, two qubits!
+Shave and a haircut, two qubits!
 
 ## Rationale
 I chose Datomic from which the use of Clojure followed naturally with queries being simply data structures. One reason I chose Datomic is the requirement that information stored in the database be versioned. Datomic provides this for free since the database is treated as a value. Viewing the past state of an entity is as simple as passing a prior database value as an argument. Prior database values can be retrieved using Datomic's "as-of" functionality. Also, Datomic's datalog query syntax made the code clear and concise--approximately 200 lines including the schema definitions!
